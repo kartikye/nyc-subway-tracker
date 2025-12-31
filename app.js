@@ -150,17 +150,35 @@ class SubwayTracker {
     }
 
     async toggleStation(stationId) {
-        const index = this.visitedStations.indexOf(stationId);
+        // Get all stations in this complex
+        const complexStations = typeof getComplexStations === 'function' 
+            ? getComplexStations(stationId) 
+            : [stationId];
+        
+        const isCurrentlyVisited = this.visitedStations.includes(stationId);
         
         try {
-            if (index > -1) {
-                const response = await fetch(`api/visited/${stationId}`, { method: 'DELETE' });
-                if (response.ok) this.visitedStations.splice(index, 1);
+            if (isCurrentlyVisited) {
+                // Unmark all stations in the complex
+                for (const id of complexStations) {
+                    const index = this.visitedStations.indexOf(id);
+                    if (index > -1) {
+                        const response = await fetch(\`api/visited/\${id}\`, { method: 'DELETE' });
+                        if (response.ok) this.visitedStations.splice(this.visitedStations.indexOf(id), 1);
+                    }
+                }
             } else {
-                const response = await fetch(`api/visited/${stationId}`, { method: 'POST' });
-                if (response.ok) this.visitedStations.push(stationId);
+                // Mark all stations in the complex
+                for (const id of complexStations) {
+                    if (!this.visitedStations.includes(id)) {
+                        const response = await fetch(\`api/visited/\${id}\`, { method: 'POST' });
+                        if (response.ok) this.visitedStations.push(id);
+                    }
+                }
             }
-            this.updateMarker(stationId);
+            
+            // Update UI for all affected stations
+            complexStations.forEach(id => this.updateMarker(id));
             this.updateStationList();
             this.updateStats();
         } catch (error) {
@@ -405,10 +423,21 @@ class SubwayTracker {
 
     updateStats() {
         const filtered = this.getFilteredStations();
-        const visitedInFilter = filtered.filter(s => this.isVisited(s.id)).length;
         
-        document.getElementById('visited-count').textContent = visitedInFilter;
-        document.getElementById('total-count').textContent = filtered.length;
+        // Count unique complexes for total
+        const totalComplexes = new Set(filtered.map(s => 
+            typeof getComplexId === 'function' ? getComplexId(s.id) : s.id
+        ));
+        
+        // Count visited unique complexes
+        const visitedComplexes = new Set(
+            filtered
+                .filter(s => this.isVisited(s.id))
+                .map(s => typeof getComplexId === 'function' ? getComplexId(s.id) : s.id)
+        );
+        
+        document.getElementById('visited-count').textContent = visitedComplexes.size;
+        document.getElementById('total-count').textContent = totalComplexes.size;
     }
 
     attachEventListeners() {

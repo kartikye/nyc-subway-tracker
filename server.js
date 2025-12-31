@@ -1,11 +1,24 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const path = require('path');
+const fs = require('fs');
 const db = require('./lib/db');
 const { createUser, verifyUser, getUserByUsername, createSession, deleteSession, authMiddleware, requireAuth, SESSION_MAX_AGE } = require('./lib/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Load station complexes
+let STATION_COMPLEXES = {};
+try {
+  STATION_COMPLEXES = JSON.parse(fs.readFileSync(path.join(__dirname, 'station-complexes.json'), 'utf8'));
+} catch (e) {
+  console.log('No station complexes file found, using individual stations');
+}
+
+function getComplexId(stationId) {
+  return STATION_COMPLEXES[stationId] || stationId;
+}
 
 // Middleware
 app.use(express.json());
@@ -151,26 +164,36 @@ app.delete('/api/visited', requireAuth, (req, res) => {
   }
 });
 
-// Serve index.html for root
-
-// GET /api/leaderboard - get top users by visited stations count
+// GET /api/leaderboard - get top users by visited stations (counting by complex)
 app.get('/api/leaderboard', requireAuth, (req, res) => {
   try {
-    const stmt = db.prepare(`
-      SELECT u.username, COUNT(v.station_id) as station_count
-      FROM users u
-      LEFT JOIN visited_stations v ON u.id = v.user_id
-      GROUP BY u.id
-      ORDER BY station_count DESC
-      LIMIT 50
-    `);
-    const leaderboard = stmt.all();
-    res.json(leaderboard);
+    const users = db.prepare('SELECT id, username FROM users').all();
+    
+    const leaderboard = users.map(user => {
+      const stations = db.prepare('SELECT station_id FROM visited_stations WHERE user_id = ?').all(user.id);
+      
+      // Count unique complexes
+      const uniqueComplexes = new Set(
+        stations.map(s => getComplexId(s.station_id))
+      );
+      
+      return {
+        username: user.username,
+        station_count: uniqueComplexes.size
+      };
+    });
+    
+    // Sort by station count descending
+    leaderboard.sort((a, b) => b.station_count - a.station_count);
+    
+    res.json(leaderboard.slice(0, 50));
   } catch (error) {
     console.error('Error fetching leaderboard:', error);
     res.status(500).json({ error: 'Failed to fetch leaderboard' });
   }
 });
+
+// Serve index.html for root
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
