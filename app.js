@@ -163,7 +163,7 @@ class SubwayTracker {
                 for (const id of complexStations) {
                     const index = this.visitedStations.indexOf(id);
                     if (index > -1) {
-                        const response = await fetch(`api/visited/\${id}`, { method: 'DELETE' });
+                        const response = await fetch(`api/visited/${id}`, { method: 'DELETE' });
                         if (response.ok) this.visitedStations.splice(this.visitedStations.indexOf(id), 1);
                     }
                 }
@@ -171,7 +171,7 @@ class SubwayTracker {
                 // Mark all stations in the complex
                 for (const id of complexStations) {
                     if (!this.visitedStations.includes(id)) {
-                        const response = await fetch(`api/visited/\${id}`, { method: 'POST' });
+                        const response = await fetch(`api/visited/${id}`, { method: 'POST' });
                         if (response.ok) this.visitedStations.push(id);
                     }
                 }
