@@ -479,7 +479,10 @@ async function showLeaderboard() {
             return;
         }
         
-        const totalStations = window.subwayTracker ? window.subwayTracker.stations.length : 475;
+        // Count unique complexes (same method as updateStats)
+        const totalStations = new Set(STATIONS.map(s => 
+            typeof getComplexId === 'function' ? getComplexId(s.id) : s.id
+        )).size;
         
         let html = '<div class="space-y-2">';
         leaderboard.forEach((entry, index) => {
