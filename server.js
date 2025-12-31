@@ -152,6 +152,25 @@ app.delete('/api/visited', requireAuth, (req, res) => {
 });
 
 // Serve index.html for root
+
+// GET /api/leaderboard - get top users by visited stations count
+app.get('/api/leaderboard', requireAuth, (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT u.username, COUNT(v.station_id) as station_count
+      FROM users u
+      LEFT JOIN visited_stations v ON u.id = v.user_id
+      GROUP BY u.id
+      ORDER BY station_count DESC
+      LIMIT 50
+    `);
+    const leaderboard = stmt.all();
+    res.json(leaderboard);
+  } catch (error) {
+    console.error('Error fetching leaderboard:', error);
+    res.status(500).json({ error: 'Failed to fetch leaderboard' });
+  }
+});
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });

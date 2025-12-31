@@ -429,3 +429,82 @@ class SubwayTracker {
 document.addEventListener('DOMContentLoaded', () => {
     new SubwayTracker();
 });
+
+// ============ LEADERBOARD ============
+
+async function showLeaderboard() {
+    const modal = document.getElementById('leaderboard-modal');
+    const content = document.getElementById('leaderboard-content');
+    
+    content.innerHTML = '<p class="text-center text-gray-500 py-8">Loading...</p>';
+    modal.classList.remove('hidden');
+    
+    try {
+        const response = await fetch('api/leaderboard');
+        if (!response.ok) throw new Error('Failed to fetch leaderboard');
+        
+        const leaderboard = await response.json();
+        
+        if (leaderboard.length === 0) {
+            content.innerHTML = '<p class="text-center text-gray-500 py-8">No users yet!</p>';
+            return;
+        }
+        
+        const totalStations = window.subwayTracker ? window.subwayTracker.stations.length : 475;
+        
+        let html = '<div class="space-y-2">';
+        leaderboard.forEach((entry, index) => {
+            const percentage = ((entry.station_count / totalStations) * 100).toFixed(1);
+            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+            const isCurrentUser = window.subwayTracker && entry.username === window.subwayTracker.currentUser?.username;
+            
+            html += `
+                <div class="flex items-center justify-between p-3 rounded-lg ${isCurrentUser ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'}">
+                    <div class="flex items-center gap-3">
+                        <span class="text-lg font-bold w-8">${medal}</span>
+                        <span class="font-medium ${isCurrentUser ? 'text-blue-700' : 'text-gray-800'}">${entry.username}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="font-bold text-lg">${entry.station_count}</span>
+                        <span class="text-gray-500 text-sm">/ ${totalStations}</span>
+                        <div class="text-xs text-gray-400">${percentage}%</div>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        content.innerHTML = html;
+    } catch (error) {
+        console.error('Error fetching leaderboard:', error);
+        content.innerHTML = '<p class="text-center text-red-500 py-8">Failed to load leaderboard</p>';
+    }
+}
+
+function hideLeaderboard() {
+    document.getElementById('leaderboard-modal').classList.add('hidden');
+}
+
+// Set up leaderboard event listeners when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    const leaderboardBtn = document.getElementById('leaderboard-btn');
+    const closeLeaderboard = document.getElementById('close-leaderboard');
+    const leaderboardModal = document.getElementById('leaderboard-modal');
+    
+    if (leaderboardBtn) {
+        leaderboardBtn.addEventListener('click', showLeaderboard);
+    }
+    
+    if (closeLeaderboard) {
+        closeLeaderboard.addEventListener('click', hideLeaderboard);
+    }
+    
+    // Close modal when clicking outside
+    if (leaderboardModal) {
+        leaderboardModal.addEventListener('click', (e) => {
+            if (e.target === leaderboardModal) {
+                hideLeaderboard();
+            }
+        });
+    }
+});

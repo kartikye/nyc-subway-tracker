@@ -77,6 +77,19 @@
         </div>
     </div>
 
+    <!-- Leaderboard Modal -->
+    <div id="leaderboard-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">🏆 Leaderboard</h2>
+                <button id="close-leaderboard" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="leaderboard-content" class="overflow-y-auto flex-1">
+                <!-- Leaderboard entries will be inserted here -->
+            </div>
+        </div>
+    </div>
+
     <!-- Main App -->
     <div id="app" class="hidden">
         <div class="container mx-auto px-4 py-4">
@@ -88,7 +101,10 @@
                     </div>
                     <div class="text-right">
                         <p class="text-sm text-gray-600">Hi, <span id="username-display" class="font-medium"></span>!</p>
-                        <button id="logout-btn" class="text-xs text-red-600 hover:text-red-800 underline">Logout</button>
+                        <div class="flex gap-2 justify-end mt-1">
+                            <button id="leaderboard-btn" class="text-xs text-blue-600 hover:text-blue-800 underline">🏆 Leaderboard</button>
+                            <button id="logout-btn" class="text-xs text-red-600 hover:text-red-800 underline">Logout</button>
+                        </div>
                     </div>
                 </div>
                 <div class="mt-2 text-center">
