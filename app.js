@@ -29,7 +29,7 @@ class SubwayTracker {
 
     async checkAuth() {
         try {
-            const response = await fetch('/auth/me');
+            const response = await fetch('auth/me');
             if (response.ok) {
                 const data = await response.json();
                 this.user = data.user;
@@ -83,7 +83,7 @@ class SubwayTracker {
         
         errorEl.classList.add('hidden');
         
-        const endpoint = this.isLoginMode ? '/auth/login' : '/auth/register';
+        const endpoint = this.isLoginMode ? 'auth/login' : 'auth/register';
         
         try {
             const response = await fetch(endpoint, {
@@ -124,7 +124,7 @@ class SubwayTracker {
 
     async handleLogout() {
         try {
-            await fetch('/auth/logout', { method: 'POST' });
+            await fetch('auth/logout', { method: 'POST' });
             window.location.reload();
         } catch (error) {
             console.error('Logout failed:', error);
@@ -133,7 +133,7 @@ class SubwayTracker {
 
     async loadVisitedStations() {
         try {
-            const response = await fetch('/api/visited');
+            const response = await fetch('api/visited');
             if (response.ok) {
                 this.visitedStations = await response.json();
             } else {
@@ -154,10 +154,10 @@ class SubwayTracker {
         
         try {
             if (index > -1) {
-                const response = await fetch(`/api/visited/${stationId}`, { method: 'DELETE' });
+                const response = await fetch(`api/visited/${stationId}`, { method: 'DELETE' });
                 if (response.ok) this.visitedStations.splice(index, 1);
             } else {
-                const response = await fetch(`/api/visited/${stationId}`, { method: 'POST' });
+                const response = await fetch(`api/visited/${stationId}`, { method: 'POST' });
                 if (response.ok) this.visitedStations.push(stationId);
             }
             this.updateMarker(stationId);
@@ -171,7 +171,7 @@ class SubwayTracker {
     async clearAll() {
         if (confirm('Are you sure you want to clear all visited stations?')) {
             try {
-                const response = await fetch('/api/visited', { method: 'DELETE' });
+                const response = await fetch('api/visited', { method: 'DELETE' });
                 if (response.ok) {
                     this.visitedStations = [];
                     this.updateAllMarkers();
