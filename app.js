@@ -422,16 +422,15 @@ class SubwayTracker {
     }
 
     updateStats() {
-        const filtered = this.getFilteredStations();
-        
-        // Count unique complexes for total
-        const totalComplexes = new Set(filtered.map(s => 
+        // Always count ALL unique complexes for total (matches leaderboard)
+        const totalComplexes = new Set(STATIONS.map(s => 
             typeof getComplexId === 'function' ? getComplexId(s.id) : s.id
         ));
         
-        // Count visited unique complexes
+        // Count ALL visited unique complexes (not filtered by line)
+        // This ensures the count matches the leaderboard regardless of line filter
         const visitedComplexes = new Set(
-            filtered
+            STATIONS
                 .filter(s => this.isVisited(s.id))
                 .map(s => typeof getComplexId === 'function' ? getComplexId(s.id) : s.id)
         );
