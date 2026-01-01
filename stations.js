@@ -621,3 +621,8 @@ function getComplexStations(stationId) {
     
     return stations;
 }
+
+// Export for Node.js (server-side)
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { STATIONS, LINE_COLORS, STATION_COMPLEXES, getComplexId, getComplexStations };
+}

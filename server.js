@@ -1,24 +1,12 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const path = require('path');
-const fs = require('fs');
 const db = require('./lib/db');
 const { createUser, verifyUser, getUserByUsername, createSession, deleteSession, authMiddleware, requireAuth, SESSION_MAX_AGE } = require('./lib/auth');
+const { STATION_COMPLEXES, getComplexId } = require('./stations.js');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-
-// Load station complexes
-let STATION_COMPLEXES = {};
-try {
-  STATION_COMPLEXES = JSON.parse(fs.readFileSync(path.join(__dirname, 'station-complexes.json'), 'utf8'));
-} catch (e) {
-  console.log('No station complexes file found, using individual stations');
-}
-
-function getComplexId(stationId) {
-  return STATION_COMPLEXES[stationId] || stationId;
-}
 
 // Middleware
 app.use(express.json());
