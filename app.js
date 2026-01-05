@@ -459,12 +459,13 @@ class SubwayTracker {
         if (dismissBtn && rulesBox) {
             // Check if user has previously dismissed the rules
             const rulesDismissed = localStorage.getItem('rulesDismissed');
-            if (rulesDismissed === 'true') {
-                rulesBox.classList.add('dismissed');
+            if (rulesDismissed !== 'true') {
+                // Only show if not previously dismissed
+                rulesBox.classList.add('visible');
             }
             
             dismissBtn.addEventListener('click', () => {
-                rulesBox.classList.add('dismissed');
+                rulesBox.classList.remove('visible');
                 localStorage.setItem('rulesDismissed', 'true');
             });
         }
