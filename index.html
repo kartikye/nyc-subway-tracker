@@ -27,6 +27,13 @@
         .leaflet-control-container {
             z-index: 500 !important;
         }
+        .rules-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-left: 4px solid #5a67d8;
+        }
+        .rules-box.dismissed {
+            display: none;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -117,6 +124,25 @@
                     <span class="text-gray-600 ml-2">stations visited</span>
                 </div>
             </header>
+
+            <!-- Rules Box -->
+            <div id="rules-box" class="rules-box rounded-lg shadow-md p-4 mb-4 text-white">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <h3 class="font-semibold text-lg mb-2 flex items-center">
+                            <span class="text-xl mr-2">ℹ️</span>
+                            How It Works
+                        </h3>
+                        <p class="text-sm leading-relaxed opacity-95">
+                            <strong>Rule:</strong> To count as a visit, you must have <strong>entered or exited</strong> a station. 
+                            Simply passing through or changing trains doesn't count unless you go through the turnstiles!
+                        </p>
+                    </div>
+                    <button id="dismiss-rules" class="ml-4 text-white hover:text-gray-200 text-2xl leading-none" title="Dismiss">
+                        ×
+                    </button>
+                </div>
+            </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <!-- Map Container -->

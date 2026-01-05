@@ -451,6 +451,23 @@ class SubwayTracker {
                 item.style.display = text.includes(query) ? 'flex' : 'none';
             });
         });
+
+        // Rules box dismiss functionality
+        const dismissBtn = document.getElementById('dismiss-rules');
+        const rulesBox = document.getElementById('rules-box');
+        
+        if (dismissBtn && rulesBox) {
+            // Check if user has previously dismissed the rules
+            const rulesDismissed = localStorage.getItem('rulesDismissed');
+            if (rulesDismissed === 'true') {
+                rulesBox.classList.add('dismissed');
+            }
+            
+            dismissBtn.addEventListener('click', () => {
+                rulesBox.classList.add('dismissed');
+                localStorage.setItem('rulesDismissed', 'true');
+            });
+        }
     }
 }
 
