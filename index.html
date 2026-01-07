@@ -24,8 +24,13 @@
         .line-btn:hover {
             transform: scale(1.05);
         }
-        .leaflet-control-container {
-            z-index: 500 !important;
+        /* Ensure map controls and attribution stay below modals */
+        .leaflet-control-container .leaflet-top,
+        .leaflet-control-container .leaflet-bottom {
+            z-index: 400 !important;
+        }
+        .leaflet-control-attribution {
+            z-index: 400 !important;
         }
         .rules-box {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
