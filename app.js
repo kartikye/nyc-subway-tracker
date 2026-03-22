@@ -957,22 +957,36 @@ async function showLeaderboard() {
             typeof getComplexId === 'function' ? getComplexId(s.id) : s.id
         )).size;
         
+        // Get current friends list for checking
+        const friendUsernames = window.tracker?.friends?.map(f => f.username) || [];
+        
         let html = '<div class="space-y-2">';
         leaderboard.forEach((entry, index) => {
             const percentage = ((entry.station_count / totalStations) * 100).toFixed(1);
             const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
             const isCurrentUser = window.tracker && entry.username === window.tracker.user?.username;
+            const isFriend = friendUsernames.includes(entry.username);
             
             html += `
                 <div class="flex items-center justify-between p-3 rounded-lg ${isCurrentUser ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'}">
                     <div class="flex items-center gap-3">
                         <span class="text-lg font-bold w-8">${medal}</span>
                         <span class="font-medium ${isCurrentUser ? 'text-blue-700' : 'text-gray-800'}">${entry.username}</span>
+                        ${isFriend ? '<span class="text-xs text-green-600">👥</span>' : ''}
                     </div>
-                    <div class="text-right">
-                        <span class="font-bold text-lg">${entry.station_count}</span>
-                        <span class="text-gray-500 text-sm">/ ${totalStations}</span>
-                        <div class="text-xs text-gray-400">${percentage}%</div>
+                    <div class="flex items-center gap-3">
+                        ${!isCurrentUser && !isFriend ? `
+                            <button onclick="addFriendFromLeaderboard('${entry.username}')" 
+                                    class="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+                                    id="add-btn-${entry.username}">
+                                + Add
+                            </button>
+                        ` : ''}
+                        <div class="text-right">
+                            <span class="font-bold text-lg">${entry.station_count}</span>
+                            <span class="text-gray-500 text-sm">/ ${totalStations}</span>
+                            <div class="text-xs text-gray-400">${percentage}%</div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -988,6 +1002,46 @@ async function showLeaderboard() {
 
 function hideLeaderboard() {
     document.getElementById('leaderboard-modal').classList.add('hidden');
+}
+
+async function addFriendFromLeaderboard(username) {
+    const btn = document.getElementById(`add-btn-${username}`);
+    if (btn) {
+        btn.textContent = '...';
+        btn.disabled = true;
+    }
+    
+    try {
+        const response = await fetch('api/friends/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: username })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            if (btn) {
+                btn.textContent = data.status === 'accepted' ? '👥' : 'Sent!';
+                btn.className = 'text-xs bg-gray-300 text-gray-600 px-2 py-1 rounded cursor-default';
+            }
+            // Reload friends list
+            if (window.tracker) {
+                window.tracker.loadFriends();
+            }
+        } else {
+            if (btn) {
+                btn.textContent = data.error === 'Request already sent' ? 'Pending' : 'Error';
+                btn.className = 'text-xs bg-gray-300 text-gray-600 px-2 py-1 rounded cursor-default';
+            }
+        }
+    } catch (error) {
+        console.error('Error adding friend:', error);
+        if (btn) {
+            btn.textContent = 'Error';
+            btn.disabled = false;
+        }
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
