@@ -7,6 +7,11 @@ class SubwayTracker {
         this.currentLineFilter = 'all';
         this.user = null;
         this.isLoginMode = true;
+        this.friends = [];
+        this.viewingFriend = null;
+        this.friendVisited = [];
+        this.togetherMode = false;
+        this.friendMarkers = [];
         this.init();
     }
 
@@ -25,6 +30,7 @@ class SubwayTracker {
         this.renderStationList();
         this.updateStats();
         this.attachEventListeners();
+        this.loadFriends();
     }
 
     async checkAuth() {
@@ -50,6 +56,7 @@ class SubwayTracker {
         const tabLogin = document.getElementById('tab-login');
         const tabRegister = document.getElementById('tab-register');
         const submitBtn = document.getElementById('auth-submit');
+        const emailField = document.getElementById('email-field');
         
         tabLogin.addEventListener('click', () => {
             this.isLoginMode = true;
@@ -58,6 +65,8 @@ class SubwayTracker {
             tabRegister.classList.remove('bg-white', 'shadow');
             tabRegister.classList.add('text-gray-600');
             submitBtn.textContent = 'Login';
+            emailField.classList.add('hidden');
+            document.getElementById('auth-email').removeAttribute('required');
         });
         
         tabRegister.addEventListener('click', () => {
@@ -67,6 +76,8 @@ class SubwayTracker {
             tabLogin.classList.remove('bg-white', 'shadow');
             tabLogin.classList.add('text-gray-600');
             submitBtn.textContent = 'Create Account';
+            emailField.classList.remove('hidden');
+            document.getElementById('auth-email').setAttribute('required', 'required');
         });
         
         // Form submission
@@ -79,17 +90,19 @@ class SubwayTracker {
     async handleAuth() {
         const username = document.getElementById('auth-username').value.trim();
         const pin = document.getElementById('auth-pin').value;
+        const email = document.getElementById('auth-email')?.value?.trim();
         const errorEl = document.getElementById('auth-error');
         
         errorEl.classList.add('hidden');
         
         const endpoint = this.isLoginMode ? 'auth/login' : 'auth/register';
+        const body = this.isLoginMode ? { username, pin } : { username, pin, email };
         
         try {
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, pin })
+                body: JSON.stringify(body)
             });
             
             const data = await response.json();
@@ -104,6 +117,7 @@ class SubwayTracker {
                 this.renderStationList();
                 this.updateStats();
                 this.attachEventListeners();
+                this.loadFriends();
             } else {
                 errorEl.textContent = data.error || 'Authentication failed';
                 errorEl.classList.remove('hidden');
@@ -203,59 +217,99 @@ class SubwayTracker {
     }
 
     initMap() {
-        this.map = L.map('map').setView([40.7128, -73.97], 12);
-
+        // NYC coordinates
+        const nycCenter = [40.7128, -73.9800];
+        
+        this.map = L.map('map').setView(nycCenter, 11);
+        
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors',
-            maxZoom: 19
+            attribution: '© OpenStreetMap contributors'
         }).addTo(this.map);
 
         STATIONS.forEach(station => {
-            this.createStationMarker(station);
+            this.createMarker(station);
         });
     }
 
-    createStationMarker(station) {
-        const lines = station.lines.split(' ');
-        const primaryColor = LINE_COLORS[lines[0]] || '#666';
+    createMarker(station) {
         const isVisited = this.isVisited(station.id);
-
+        const color = isVisited ? '#22c55e' : '#ef4444';
+        
         const marker = L.circleMarker([station.lat, station.lon], {
-            radius: 8,
-            fillColor: isVisited ? primaryColor : 'white',
-            color: primaryColor,
-            weight: 3,
+            radius: 6,
+            fillColor: color,
+            color: '#fff',
+            weight: 2,
             opacity: 1,
-            fillOpacity: isVisited ? 1 : 0.9
+            fillOpacity: 0.8
         }).addTo(this.map);
 
         marker.bindPopup(`
-            <strong>${station.name}</strong><br>
-            <span style="color: ${primaryColor}">●</span> ${station.lines}<br>
-            <em>${this.isVisited(station.id) ? '✓ Visited' : 'Not visited'}</em>
+            <div class="text-center">
+                <strong>${station.name}</strong><br>
+                <span class="text-xs">${station.lines}</span><br>
+                <button onclick="window.tracker.toggleStation('${station.id}')" 
+                        class="mt-2 px-3 py-1 rounded text-white text-sm ${isVisited ? 'bg-red-500' : 'bg-green-500'}">
+                    ${isVisited ? 'Mark Unvisited' : 'Mark Visited'}
+                </button>
+            </div>
         `);
 
-        marker.on('click', () => {
-            this.toggleStation(station.id);
-            marker.setPopupContent(`
-                <strong>${station.name}</strong><br>
-                <span style="color: ${primaryColor}">●</span> ${station.lines}<br>
-                <em>${this.isVisited(station.id) ? '✓ Visited' : 'Not visited'}</em>
-            `);
-        });
-
-        this.markers[station.id] = { marker, color: primaryColor, lines: lines };
+        this.markers[station.id] = { marker, station };
     }
 
     updateMarker(stationId) {
         const markerData = this.markers[stationId];
-        if (markerData) {
-            const isVisited = this.isVisited(stationId);
-            markerData.marker.setStyle({
-                fillColor: isVisited ? markerData.color : 'white',
-                fillOpacity: isVisited ? 1 : 0.9
-            });
+        if (!markerData) return;
+
+        const { marker, station } = markerData;
+        const isVisited = this.isVisited(stationId);
+        const isFriendVisited = this.friendVisited.includes(stationId);
+        
+        let color = isVisited ? '#22c55e' : '#ef4444';
+        let className = '';
+        
+        // If viewing a friend
+        if (this.viewingFriend) {
+            if (this.togetherMode) {
+                // Together mode: highlight unvisited by both
+                if (!isVisited && !isFriendVisited) {
+                    color = '#eab308'; // Yellow for "visit together"
+                    className = 'together-marker';
+                } else {
+                    color = '#9ca3af'; // Gray out visited stations
+                }
+            } else {
+                // Friend view mode
+                if (isFriendVisited && !isVisited) {
+                    color = '#a855f7'; // Purple for friend-only
+                } else if (isVisited && isFriendVisited) {
+                    color = '#22c55e'; // Green for both
+                } else if (isVisited) {
+                    color = '#22c55e'; // Green for you
+                }
+            }
         }
+        
+        marker.setStyle({ fillColor: color });
+        
+        marker.setPopupContent(`
+            <div class="text-center">
+                <strong>${station.name}</strong><br>
+                <span class="text-xs">${station.lines}</span><br>
+                ${this.viewingFriend ? `
+                    <div class="text-xs mt-1">
+                        <span class="${isVisited ? 'text-green-600' : 'text-gray-400'}">You: ${isVisited ? '✓' : '✗'}</span>
+                        <span class="mx-1">|</span>
+                        <span class="${isFriendVisited ? 'text-purple-600' : 'text-gray-400'}">${this.viewingFriend.username}: ${isFriendVisited ? '✓' : '✗'}</span>
+                    </div>
+                ` : ''}
+                <button onclick="window.tracker.toggleStation('${station.id}')" 
+                        class="mt-2 px-3 py-1 rounded text-white text-sm ${isVisited ? 'bg-red-500' : 'bg-green-500'}">
+                    ${isVisited ? 'Mark Unvisited' : 'Mark Visited'}
+                </button>
+            </div>
+        `);
     }
 
     updateAllMarkers() {
@@ -404,6 +458,15 @@ class SubwayTracker {
         lineSpan.className = 'ml-2 text-xs text-gray-500';
         lineSpan.textContent = `(${station.lines})`;
         
+        // Friend indicator
+        if (this.viewingFriend && this.friendVisited.includes(station.id)) {
+            const friendSpan = document.createElement('span');
+            friendSpan.className = 'ml-2 text-xs text-purple-600';
+            friendSpan.textContent = '👤';
+            friendSpan.title = `${this.viewingFriend.username} visited`;
+            label.appendChild(friendSpan);
+        }
+        
         label.appendChild(nameSpan);
         label.appendChild(lineSpan);
 
@@ -428,7 +491,6 @@ class SubwayTracker {
         ));
         
         // Count ALL visited unique complexes (not filtered by line)
-        // This ensures the count matches the leaderboard regardless of line filter
         const visitedComplexes = new Set(
             STATIONS
                 .filter(s => this.isVisited(s.id))
@@ -440,6 +502,9 @@ class SubwayTracker {
     }
 
     attachEventListeners() {
+        // Make tracker globally accessible for popup buttons
+        window.tracker = this;
+        
         document.getElementById('clear-all').addEventListener('click', () => this.clearAll());
 
         const searchBox = document.getElementById('search-box');
@@ -457,10 +522,8 @@ class SubwayTracker {
         const rulesBox = document.getElementById('rules-box');
         
         if (dismissBtn && rulesBox) {
-            // Check if user has previously dismissed the rules
             const rulesDismissed = localStorage.getItem('rulesDismissed');
             if (rulesDismissed !== 'true') {
-                // Only show if not previously dismissed
                 rulesBox.classList.add('visible');
             }
             
@@ -468,6 +531,388 @@ class SubwayTracker {
                 rulesBox.classList.remove('visible');
                 localStorage.setItem('rulesDismissed', 'true');
             });
+        }
+        
+        // Friends button
+        document.getElementById('friends-btn').addEventListener('click', () => this.showFriendsModal());
+        document.getElementById('close-friends').addEventListener('click', () => this.hideFriendsModal());
+        document.getElementById('friends-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'friends-modal') this.hideFriendsModal();
+        });
+        
+        // Friends tabs
+        document.getElementById('friends-tab-list').addEventListener('click', () => this.showFriendsTab('list'));
+        document.getElementById('friends-tab-requests').addEventListener('click', () => this.showFriendsTab('requests'));
+        document.getElementById('friends-tab-add').addEventListener('click', () => this.showFriendsTab('add'));
+        
+        // Settings
+        document.getElementById('settings-btn').addEventListener('click', () => this.showSettingsModal());
+        document.getElementById('close-settings').addEventListener('click', () => this.hideSettingsModal());
+        document.getElementById('settings-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'settings-modal') this.hideSettingsModal();
+        });
+        document.getElementById('settings-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveSettings();
+        });
+        
+        // Friend view controls
+        document.getElementById('clear-friend-view').addEventListener('click', () => this.clearFriendView());
+        document.getElementById('toggle-together-mode').addEventListener('click', () => this.toggleTogetherMode());
+    }
+    
+    // ============ FRIENDS ============
+    
+    async loadFriends() {
+        try {
+            const response = await fetch('api/friends');
+            if (response.ok) {
+                this.friends = await response.json();
+            }
+        } catch (error) {
+            console.error('Error loading friends:', error);
+        }
+    }
+    
+    showFriendsModal() {
+        document.getElementById('friends-modal').classList.remove('hidden');
+        this.showFriendsTab('list');
+        this.loadFriendRequests();
+    }
+    
+    hideFriendsModal() {
+        document.getElementById('friends-modal').classList.add('hidden');
+    }
+    
+    showFriendsTab(tab) {
+        // Update tab styling
+        ['list', 'requests', 'add'].forEach(t => {
+            const tabEl = document.getElementById(`friends-tab-${t}`);
+            if (t === tab) {
+                tabEl.classList.add('tab-active');
+                tabEl.classList.remove('text-gray-500');
+            } else {
+                tabEl.classList.remove('tab-active');
+                tabEl.classList.add('text-gray-500');
+            }
+        });
+        
+        const content = document.getElementById('friends-content');
+        
+        if (tab === 'list') {
+            this.renderFriendsList(content);
+        } else if (tab === 'requests') {
+            this.renderFriendRequests(content);
+        } else if (tab === 'add') {
+            this.renderAddFriend(content);
+        }
+    }
+    
+    async renderFriendsList(container) {
+        await this.loadFriends();
+        
+        if (this.friends.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-8 text-gray-500">
+                    <p class="text-4xl mb-2">👥</p>
+                    <p>No friends yet!</p>
+                    <p class="text-sm mt-1">Add friends to see their progress</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '<div class="space-y-2">';
+        for (const friend of this.friends) {
+            html += `
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                        <span class="font-medium">${friend.username}</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="window.tracker.viewFriend(${friend.id}, '${friend.username}')" 
+                                class="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
+                            View Map
+                        </button>
+                        <button onclick="window.tracker.removeFriend(${friend.friendship_id})" 
+                                class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200">
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        html += '</div>';
+        container.innerHTML = html;
+    }
+    
+    async loadFriendRequests() {
+        try {
+            const response = await fetch('api/friends/requests');
+            if (response.ok) {
+                const data = await response.json();
+                const badge = document.getElementById('request-badge');
+                if (data.incoming.length > 0) {
+                    badge.textContent = data.incoming.length;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+                return data;
+            }
+        } catch (error) {
+            console.error('Error loading friend requests:', error);
+        }
+        return { incoming: [], outgoing: [] };
+    }
+    
+    async renderFriendRequests(container) {
+        const data = await this.loadFriendRequests();
+        
+        let html = '';
+        
+        if (data.incoming.length > 0) {
+            html += '<h3 class="font-semibold text-sm text-gray-600 mb-2">Incoming Requests</h3>';
+            html += '<div class="space-y-2 mb-4">';
+            for (const req of data.incoming) {
+                html += `
+                    <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <span class="font-medium">${req.username}</span>
+                        <div class="flex gap-2">
+                            <button onclick="window.tracker.acceptRequest(${req.friendship_id})" 
+                                    class="text-xs bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">
+                                Accept
+                            </button>
+                            <button onclick="window.tracker.declineRequest(${req.friendship_id})" 
+                                    class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded hover:bg-gray-300">
+                                Decline
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            html += '</div>';
+        }
+        
+        if (data.outgoing.length > 0) {
+            html += '<h3 class="font-semibold text-sm text-gray-600 mb-2">Sent Requests</h3>';
+            html += '<div class="space-y-2">';
+            for (const req of data.outgoing) {
+                html += `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span class="font-medium">${req.username}</span>
+                        <span class="text-xs text-gray-500">Pending...</span>
+                    </div>
+                `;
+            }
+            html += '</div>';
+        }
+        
+        if (data.incoming.length === 0 && data.outgoing.length === 0) {
+            html = `
+                <div class="text-center py-8 text-gray-500">
+                    <p>No pending requests</p>
+                </div>
+            `;
+        }
+        
+        container.innerHTML = html;
+    }
+    
+    renderAddFriend(container) {
+        container.innerHTML = `
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Username or Email</label>
+                    <input type="text" id="add-friend-input" placeholder="Enter username or email"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button onclick="window.tracker.sendFriendRequest()" 
+                        class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700">
+                    Send Friend Request
+                </button>
+                <p id="add-friend-message" class="text-sm text-center hidden"></p>
+            </div>
+        `;
+    }
+    
+    async sendFriendRequest() {
+        const input = document.getElementById('add-friend-input');
+        const message = document.getElementById('add-friend-message');
+        const identifier = input.value.trim();
+        
+        if (!identifier) return;
+        
+        try {
+            const response = await fetch('api/friends/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identifier })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                message.textContent = data.status === 'accepted' 
+                    ? `You're now friends with ${data.username}!` 
+                    : `Request sent to ${data.username}!`;
+                message.className = 'text-sm text-center text-green-600';
+                message.classList.remove('hidden');
+                input.value = '';
+                this.loadFriends();
+            } else {
+                message.textContent = data.error;
+                message.className = 'text-sm text-center text-red-600';
+                message.classList.remove('hidden');
+            }
+        } catch (error) {
+            message.textContent = 'Network error. Please try again.';
+            message.className = 'text-sm text-center text-red-600';
+            message.classList.remove('hidden');
+        }
+    }
+    
+    async acceptRequest(friendshipId) {
+        try {
+            const response = await fetch(`api/friends/${friendshipId}/accept`, { method: 'POST' });
+            if (response.ok) {
+                this.loadFriends();
+                this.showFriendsTab('requests');
+            }
+        } catch (error) {
+            console.error('Error accepting request:', error);
+        }
+    }
+    
+    async declineRequest(friendshipId) {
+        try {
+            const response = await fetch(`api/friends/${friendshipId}`, { method: 'DELETE' });
+            if (response.ok) {
+                this.showFriendsTab('requests');
+            }
+        } catch (error) {
+            console.error('Error declining request:', error);
+        }
+    }
+    
+    async removeFriend(friendshipId) {
+        if (!confirm('Remove this friend?')) return;
+        
+        try {
+            const response = await fetch(`api/friends/${friendshipId}`, { method: 'DELETE' });
+            if (response.ok) {
+                this.loadFriends();
+                this.showFriendsTab('list');
+                if (this.viewingFriend) {
+                    this.clearFriendView();
+                }
+            }
+        } catch (error) {
+            console.error('Error removing friend:', error);
+        }
+    }
+    
+    async viewFriend(friendId, username) {
+        try {
+            const response = await fetch(`api/friends/${friendId}/visited`);
+            if (response.ok) {
+                this.friendVisited = await response.json();
+                this.viewingFriend = { id: friendId, username };
+                this.togetherMode = false;
+                
+                // Show friend view bar
+                document.getElementById('friend-view-bar').classList.remove('hidden');
+                document.getElementById('viewing-friend-name').textContent = username;
+                document.getElementById('map-legend').classList.remove('hidden');
+                
+                // Calculate friend stats
+                const friendComplexes = new Set(
+                    STATIONS
+                        .filter(s => this.friendVisited.includes(s.id))
+                        .map(s => typeof getComplexId === 'function' ? getComplexId(s.id) : s.id)
+                );
+                document.getElementById('friend-stats').textContent = `(${friendComplexes.size} stations)`;
+                
+                // Update toggle button
+                document.getElementById('toggle-together-mode').textContent = 'Show Visit Together';
+                
+                this.updateAllMarkers();
+                this.renderStationList();
+                this.hideFriendsModal();
+            }
+        } catch (error) {
+            console.error('Error viewing friend:', error);
+        }
+    }
+    
+    clearFriendView() {
+        this.viewingFriend = null;
+        this.friendVisited = [];
+        this.togetherMode = false;
+        
+        document.getElementById('friend-view-bar').classList.add('hidden');
+        document.getElementById('map-legend').classList.add('hidden');
+        
+        this.updateAllMarkers();
+        this.renderStationList();
+    }
+    
+    toggleTogetherMode() {
+        this.togetherMode = !this.togetherMode;
+        
+        const btn = document.getElementById('toggle-together-mode');
+        btn.textContent = this.togetherMode ? 'Show All Stations' : 'Show Visit Together';
+        
+        this.updateAllMarkers();
+    }
+    
+    // ============ SETTINGS ============
+    
+    showSettingsModal() {
+        document.getElementById('settings-modal').classList.remove('hidden');
+        document.getElementById('settings-email').value = this.user.email || '';
+        document.getElementById('settings-message').classList.add('hidden');
+    }
+    
+    hideSettingsModal() {
+        document.getElementById('settings-modal').classList.add('hidden');
+    }
+    
+    async saveSettings() {
+        const email = document.getElementById('settings-email').value.trim();
+        const message = document.getElementById('settings-message');
+        
+        if (!email) {
+            message.textContent = 'Email is required';
+            message.className = 'mt-4 text-sm text-center text-red-600';
+            message.classList.remove('hidden');
+            return;
+        }
+        
+        try {
+            const response = await fetch('auth/email', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                this.user.email = data.email;
+                message.textContent = 'Email saved!';
+                message.className = 'mt-4 text-sm text-center text-green-600';
+                message.classList.remove('hidden');
+                setTimeout(() => this.hideSettingsModal(), 1500);
+            } else {
+                message.textContent = data.error;
+                message.className = 'mt-4 text-sm text-center text-red-600';
+                message.classList.remove('hidden');
+            }
+        } catch (error) {
+            message.textContent = 'Network error. Please try again.';
+            message.className = 'mt-4 text-sm text-center text-red-600';
+            message.classList.remove('hidden');
         }
     }
 }
@@ -496,7 +941,6 @@ async function showLeaderboard() {
             return;
         }
         
-        // Count unique complexes (same method as updateStats)
         const totalStations = new Set(STATIONS.map(s => 
             typeof getComplexId === 'function' ? getComplexId(s.id) : s.id
         )).size;
@@ -505,7 +949,7 @@ async function showLeaderboard() {
         leaderboard.forEach((entry, index) => {
             const percentage = ((entry.station_count / totalStations) * 100).toFixed(1);
             const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
-            const isCurrentUser = window.subwayTracker && entry.username === window.subwayTracker.currentUser?.username;
+            const isCurrentUser = window.tracker && entry.username === window.tracker.user?.username;
             
             html += `
                 <div class="flex items-center justify-between p-3 rounded-lg ${isCurrentUser ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'}">
@@ -534,7 +978,6 @@ function hideLeaderboard() {
     document.getElementById('leaderboard-modal').classList.add('hidden');
 }
 
-// Set up leaderboard event listeners when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     const leaderboardBtn = document.getElementById('leaderboard-btn');
     const closeLeaderboard = document.getElementById('close-leaderboard');
@@ -548,7 +991,6 @@ document.addEventListener('DOMContentLoaded', () => {
         closeLeaderboard.addEventListener('click', hideLeaderboard);
     }
     
-    // Close modal when clicking outside
     if (leaderboardModal) {
         leaderboardModal.addEventListener('click', (e) => {
             if (e.target === leaderboardModal) {
