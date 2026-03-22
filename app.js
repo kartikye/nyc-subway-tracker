@@ -217,99 +217,111 @@ class SubwayTracker {
     }
 
     initMap() {
-        // NYC coordinates
-        const nycCenter = [40.7128, -73.9800];
-        
-        this.map = L.map('map').setView(nycCenter, 11);
-        
+        this.map = L.map('map').setView([40.7128, -73.97], 12);
+
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
         }).addTo(this.map);
 
         STATIONS.forEach(station => {
-            this.createMarker(station);
+            this.createStationMarker(station);
         });
     }
 
-    createMarker(station) {
+    createStationMarker(station) {
+        const lines = station.lines.split(' ');
+        const primaryColor = LINE_COLORS[lines[0]] || '#666';
         const isVisited = this.isVisited(station.id);
-        const color = isVisited ? '#22c55e' : '#ef4444';
-        
+
         const marker = L.circleMarker([station.lat, station.lon], {
-            radius: 6,
-            fillColor: color,
-            color: '#fff',
-            weight: 2,
+            radius: 8,
+            fillColor: isVisited ? primaryColor : 'white',
+            color: primaryColor,
+            weight: 3,
             opacity: 1,
-            fillOpacity: 0.8
+            fillOpacity: isVisited ? 1 : 0.9
         }).addTo(this.map);
 
         marker.bindPopup(`
-            <div class="text-center">
-                <strong>${station.name}</strong><br>
-                <span class="text-xs">${station.lines}</span><br>
-                <button onclick="window.tracker.toggleStation('${station.id}')" 
-                        class="mt-2 px-3 py-1 rounded text-white text-sm ${isVisited ? 'bg-red-500' : 'bg-green-500'}">
-                    ${isVisited ? 'Mark Unvisited' : 'Mark Visited'}
-                </button>
-            </div>
+            <strong>${station.name}</strong><br>
+            <span style="color: ${primaryColor}">●</span> ${station.lines}<br>
+            <em>${isVisited ? '✓ Visited' : 'Not visited'}</em>
         `);
 
-        this.markers[station.id] = { marker, station };
+        marker.on('click', () => {
+            this.toggleStation(station.id);
+        });
+
+        this.markers[station.id] = { marker, color: primaryColor, station };
     }
 
     updateMarker(stationId) {
         const markerData = this.markers[stationId];
         if (!markerData) return;
 
-        const { marker, station } = markerData;
+        const { marker, color, station } = markerData;
         const isVisited = this.isVisited(stationId);
         const isFriendVisited = this.friendVisited.includes(stationId);
         
-        let color = isVisited ? '#22c55e' : '#ef4444';
-        let className = '';
+        let fillColor = isVisited ? color : 'white';
+        let borderColor = color;
+        let fillOpacity = isVisited ? 1 : 0.9;
         
         // If viewing a friend
         if (this.viewingFriend) {
             if (this.togetherMode) {
                 // Together mode: highlight unvisited by both
                 if (!isVisited && !isFriendVisited) {
-                    color = '#eab308'; // Yellow for "visit together"
-                    className = 'together-marker';
+                    fillColor = '#eab308'; // Yellow for "visit together"
+                    borderColor = '#eab308';
+                    fillOpacity = 1;
                 } else {
-                    color = '#9ca3af'; // Gray out visited stations
+                    fillColor = '#9ca3af'; // Gray out visited stations
+                    borderColor = '#9ca3af';
+                    fillOpacity = 0.5;
                 }
             } else {
                 // Friend view mode
                 if (isFriendVisited && !isVisited) {
-                    color = '#a855f7'; // Purple for friend-only
+                    fillColor = '#a855f7'; // Purple for friend-only
+                    borderColor = '#a855f7';
+                    fillOpacity = 1;
                 } else if (isVisited && isFriendVisited) {
-                    color = '#22c55e'; // Green for both
+                    fillColor = color; // Line color for both visited
+                    fillOpacity = 1;
                 } else if (isVisited) {
-                    color = '#22c55e'; // Green for you
+                    fillColor = color; // Line color for you
+                    fillOpacity = 1;
                 }
+                // Unvisited by both stays white with line color border
             }
         }
         
-        marker.setStyle({ fillColor: color });
+        marker.setStyle({ 
+            fillColor: fillColor,
+            color: borderColor,
+            fillOpacity: fillOpacity
+        });
         
-        marker.setPopupContent(`
-            <div class="text-center">
-                <strong>${station.name}</strong><br>
-                <span class="text-xs">${station.lines}</span><br>
-                ${this.viewingFriend ? `
-                    <div class="text-xs mt-1">
-                        <span class="${isVisited ? 'text-green-600' : 'text-gray-400'}">You: ${isVisited ? '✓' : '✗'}</span>
-                        <span class="mx-1">|</span>
-                        <span class="${isFriendVisited ? 'text-purple-600' : 'text-gray-400'}">${this.viewingFriend.username}: ${isFriendVisited ? '✓' : '✗'}</span>
-                    </div>
-                ` : ''}
-                <button onclick="window.tracker.toggleStation('${station.id}')" 
-                        class="mt-2 px-3 py-1 rounded text-white text-sm ${isVisited ? 'bg-red-500' : 'bg-green-500'}">
-                    ${isVisited ? 'Mark Unvisited' : 'Mark Visited'}
-                </button>
-            </div>
-        `);
+        let popupContent = `
+            <strong>${station.name}</strong><br>
+            <span style="color: ${color}">●</span> ${station.lines}<br>
+        `;
+        
+        if (this.viewingFriend) {
+            popupContent += `
+                <div style="margin-top: 4px; font-size: 12px;">
+                    <span style="color: ${isVisited ? '#22c55e' : '#999'}">You: ${isVisited ? '✓' : '✗'}</span>
+                    <span style="margin: 0 4px;">|</span>
+                    <span style="color: ${isFriendVisited ? '#a855f7' : '#999'}">${this.viewingFriend.username}: ${isFriendVisited ? '✓' : '✗'}</span>
+                </div>
+            `;
+        } else {
+            popupContent += `<em>${isVisited ? '✓ Visited' : 'Not visited'}</em>`;
+        }
+        
+        marker.setPopupContent(popupContent);
     }
 
     updateAllMarkers() {
