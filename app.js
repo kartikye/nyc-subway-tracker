@@ -250,7 +250,10 @@ class SubwayTracker {
         `);
 
         marker.on('click', () => {
-            this.toggleStation(station.id);
+            // Don't allow toggling when viewing a friend's map
+            if (!this.viewingFriend) {
+                this.toggleStation(station.id);
+            }
         });
 
         this.markers[station.id] = { marker, color: primaryColor, station };
