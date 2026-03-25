@@ -165,9 +165,10 @@ class SubwayTracker {
 
     async toggleStation(stationId) {
         // Get all stations in this complex
-        const complexStations = typeof getComplexStations === 'function' 
-            ? getComplexStations(stationId) 
-            : [stationId];
+        const station = STATIONS_BY_ID[stationId];
+        const complexStations = STATIONS
+            .filter(s => s.complexId === station.complexId)
+            .map(s => s.id);
         
         const isCurrentlyVisited = this.visitedStations.includes(stationId);
         
@@ -501,15 +502,13 @@ class SubwayTracker {
 
     updateStats() {
         // Always count ALL unique complexes for total (matches leaderboard)
-        const totalComplexes = new Set(STATIONS.map(s => 
-            typeof getComplexId === 'function' ? getComplexId(s.id) : s.id
-        ));
+        const totalComplexes = new Set(STATIONS.map(s => s.complexId));
         
         // Count ALL visited unique complexes (not filtered by line)
         const visitedComplexes = new Set(
             STATIONS
                 .filter(s => this.isVisited(s.id))
-                .map(s => typeof getComplexId === 'function' ? getComplexId(s.id) : s.id)
+                .map(s => s.complexId)
         );
         
         document.getElementById('visited-count').textContent = visitedComplexes.size;
@@ -844,7 +843,7 @@ class SubwayTracker {
                 const friendComplexes = new Set(
                     STATIONS
                         .filter(s => this.friendVisited.includes(s.id))
-                        .map(s => typeof getComplexId === 'function' ? getComplexId(s.id) : s.id)
+                        .map(s => s.complexId)
                 );
                 document.getElementById('friend-stats').textContent = `(${friendComplexes.size} stations)`;
                 
@@ -956,9 +955,7 @@ async function showLeaderboard() {
             return;
         }
         
-        const totalStations = new Set(STATIONS.map(s => 
-            typeof getComplexId === 'function' ? getComplexId(s.id) : s.id
-        )).size;
+        const totalStations = new Set(STATIONS.map(s => s.complexId)).size;
         
         // Get current friends list for checking
         const friendUsernames = window.tracker?.friends?.map(f => f.username) || [];

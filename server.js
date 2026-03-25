@@ -4,7 +4,7 @@ const path = require('path');
 const db = require('./lib/db');
 const { createUser, verifyUser, getUserByUsername, getUserByEmail, getUserById, updateEmail, createSession, deleteSession, authMiddleware, requireAuth, SESSION_MAX_AGE } = require('./lib/auth');
 const { sendFriendRequest, acceptFriendRequest, removeFriend, getFriends, getPendingRequests, getOutgoingRequests, getFriendVisited, getUnvisitedTogether } = require('./lib/friends');
-const { STATION_COMPLEXES, getComplexId } = require('./stations.js');
+const { STATIONS_BY_ID } = require('./stations.js');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -307,7 +307,7 @@ app.get('/api/leaderboard', requireAuth, (req, res) => {
       
       // Count unique complexes
       const uniqueComplexes = new Set(
-        stations.map(s => getComplexId(s.station_id))
+        stations.map(s => STATIONS_BY_ID[s.station_id].complexId)
       );
       
       return {

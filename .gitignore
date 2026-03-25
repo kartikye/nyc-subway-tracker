@@ -4,3 +4,6 @@ node_modules/
 *.db-wal
 *.log
 .env
+
+# raw MTA stations data
+39hk-dx4f.json
