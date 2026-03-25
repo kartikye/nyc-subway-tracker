@@ -497,40 +497,97 @@ const LINE_COLORS = {
 // Stations in the same complex are physically connected transfer points (within ~300m)
 // Fixed: Removed all incorrect mappings where stations were >300m apart
 const STATION_COMPLEXES = {
-  "111": "111",
-  "114": "114",
-  "118": "118",
-  "119": "119",
-  "123": "123",
+  // Times Sq-42 St complex
   "127": "127",
   "725": "127",
   "902": "127",
   "R16": "127",
 
+  // 34 St-Penn Station complex
   "128": "128",
-  "129": "129",
+  "A28": "128",
+
+  // 14 St-Union Sq complex
+  "635": "635",
+  "L03": "635",
+  "R20": "635",
+
+  // 14 St (7th Ave) complex
   "132": "132",
-  "219": "219",
-  "224": "224",
-  "229": "229",
-  "231": "231",
-  "232": "232",
+  "A31": "132",
+
+  // Grand Central-42 St complex
+  "631": "631",
+  "723": "631",
+  "901": "631",
+
+  // 34 St-Herald Sq complex
+  "D17": "D17",
+  "R17": "D17",
+
+  // 59 St-Columbus Circle complex
+  "125": "A24",
+  "A24": "A24",
+
+  // Lexington Av/59 St complex
+  "629": "629",
+  "R11": "629",
+
+  // Canal St complex (all Canal stations in Manhattan)
+  "135": "135",
+  "639": "135",
+  "A34": "135",
+  "M20": "135",
+  "Q01": "135",
+  "R23": "135",
+
+  // Fulton St complex (Manhattan)
+  "229": "418",
+  "418": "418",
+  "A38": "418",
+  "M22": "418",
+
+  // Chambers St complex
+  "137": "A36",
+  "A36": "A36",
+  "M21": "A36",
+
+  // Atlantic Av-Barclays Ctr complex
   "235": "235",
-  "236": "236",
-  "237": "237",
+  "D24": "235",
+  "R31": "235",
+
+  // Broadway Junction complex
+  "A51": "A51",
+  "J27": "A51",
+  "L22": "A51",
+
+  // 42 St-Port Authority / Bryant Park complex
+  "A27": "A27",
+  "D16": "A27",
+
+  // 149 St-Grand Concourse complex
   "222": "415",
   "415": "415",
 
+  // Other individual mappings (keep existing)
+  "111": "111",
+  "114": "114",
+  "118": "118",
+  "119": "119",
+  "123": "123",
+  "129": "129",
+  "219": "219",
+  "224": "224",
+  "231": "231",
+  "232": "232",
+  "236": "236",
+  "237": "237",
   "416": "416",
-  "418": "418",
-  "230": "419",
-  "419": "419",
-
   "503": "503",
   "504": "504",
   "619": "619",
   "622": "622",
-  "629": "629",
   "634": "634",
   "638": "638",
   "701": "701",
@@ -538,17 +595,9 @@ const STATION_COMPLEXES = {
   "A03": "A03",
   "A15": "A15",
   "A20": "A20",
-  "125": "A24",
-  "A24": "A24",
-
+  "A25": "126",
   "126": "A25",
-  "A25": "A25",
-
-  "A28": "A28",
   "A33": "A33",
-  "137": "A36",
-  "A36": "A36",
-
   "A40": "A40",
   "A41": "A41",
   "A44": "A44",
@@ -564,8 +613,6 @@ const STATION_COMPLEXES = {
   "D10": "D10",
   "D13": "D13",
   "D14": "D14",
-  "D16": "D16",
-  "D17": "D17",
   "D22": "D22",
   "F02": "F02",
   "F09": "F09",
@@ -578,10 +625,8 @@ const STATION_COMPLEXES = {
   "G30": "G30",
   "G35": "G35",
   "J19": "J19",
-  "J27": "J27",
   "L08": "L08",
   "L10": "L10",
-  "L22": "L22",
   "M12": "M12",
   "M19": "M19",
   "N07": "N07",
@@ -590,19 +635,18 @@ const STATION_COMPLEXES = {
   "R14": "R14",
   "R18": "R18",
   "R19": "R19",
-  "R23": "R23",
   "139": "R26",
   "R26": "R26",
-
   "R29": "R29",
-  "R31": "R31",
   "R32": "R32",
   "R42": "R42",
   "R44": "R44",
-  "R45": "R45"
-};
+  "R45": "R45",
 
-// Get the complex ID for a station (returns same ID if not in a complex)
+  // Jay St-MetroTech complex
+  "A41": "A41",
+  "R28": "A41"
+};
 function getComplexId(stationId) {
     return STATION_COMPLEXES[stationId] || stationId;
 }
